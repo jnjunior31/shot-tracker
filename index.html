@@ -469,7 +469,7 @@
     <div class="card-title">Settings</div>
     <div class="setting-row">
       <div class="setting-label">Average shots per minute</div>
-      <input type="number" class="setting-input" id="setting-spm" min="1" max="60" step="0.1">
+      <input type="text" inputmode="decimal" class="setting-input" id="setting-spm" placeholder="e.g. 16">
     </div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:-2px 0 12px;">
       To find this number: set a timer for 2 minutes and count every shot you attempt. Do not worry about makes or misses. Repeat 4–5 times. Add your shot totals together, divide by the number of rounds to get your average shots in 2 minutes, then divide that number by 2. Enter that final number here.
@@ -477,11 +477,11 @@
     </div>
     <div class="setting-row">
       <div class="setting-label">Default round length (minutes)</div>
-      <input type="number" class="setting-input" id="setting-rl" min="0.5" max="20" step="0.25">
+      <input type="text" inputmode="decimal" class="setting-input" id="setting-rl" placeholder="e.g. 3">
     </div>
     <div class="setting-row">
       <div class="setting-label">Max rounds per session</div>
-      <input type="number" class="setting-input" id="setting-mr" min="1" max="20" step="1">
+      <input type="text" inputmode="numeric" class="setting-input" id="setting-mr" placeholder="e.g. 8">
     </div>
     <div class="setting-row">
       <div class="setting-label">Est. shots per round</div>
@@ -1227,25 +1227,50 @@ function renderSettings() {
   updateEstDisplay();
 }
 
+function parseSettingNumber(id, fallback) {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  const raw = String(el.value || '').trim().replace(',', '.');
+  const value = parseFloat(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function updateEstDisplay() {
-  const spm = parseFloat(document.getElementById('setting-spm').value) || settings.shotsPerMin;
-  const rl  = parseFloat(document.getElementById('setting-rl').value) || settings.roundLength;
+  const spm = parseSettingNumber('setting-spm', settings.shotsPerMin);
+  const rl  = parseSettingNumber('setting-rl', settings.roundLength);
   document.getElementById('est-shots-display').textContent = Math.round(spm * rl);
+}
+
+function saveSettingsFromInputs(rebuildLog = false) {
+  const spm = parseSettingNumber('setting-spm', settings.shotsPerMin);
+  const rl  = parseSettingNumber('setting-rl', settings.roundLength);
+  const mr  = Math.round(parseSettingNumber('setting-mr', settings.maxRounds));
+  const voiceEl = document.getElementById('setting-voice');
+  const voiceAnnouncements = voiceEl ? voiceEl.checked : true;
+
+  if (spm > 0 && rl > 0 && mr > 0) {
+    const oldMaxRounds = settings.maxRounds;
+    const oldRoundLength = settings.roundLength;
+    settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr, voiceAnnouncements };
+    saveSettings(settings);
+
+    if (rebuildLog && (oldMaxRounds !== mr || oldRoundLength !== rl)) {
+      buildLogForm();
+    }
+  }
 }
 
 document.addEventListener('input', e => {
   if (['setting-spm','setting-rl','setting-mr','setting-voice'].includes(e.target.id)) {
     updateEstDisplay();
-    const spm = parseFloat(document.getElementById('setting-spm').value);
-    const rl  = parseFloat(document.getElementById('setting-rl').value);
-    const mr  = parseInt(document.getElementById('setting-mr').value);
-    const voiceEl = document.getElementById('setting-voice');
-    const voiceAnnouncements = voiceEl ? voiceEl.checked : true;
-    if (spm > 0 && rl > 0 && mr > 0) {
-      settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr, voiceAnnouncements };
-      saveSettings(settings);
-      buildLogForm(); // rebuild if maxRounds changed
-    }
+    saveSettingsFromInputs(false);
+  }
+});
+
+document.addEventListener('change', e => {
+  if (['setting-spm','setting-rl','setting-mr','setting-voice'].includes(e.target.id)) {
+    saveSettingsFromInputs(true);
+    renderSettings();
   }
 });
 
