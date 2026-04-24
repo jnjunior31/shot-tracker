@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Shot Tracker</title>
+<meta name="apple-mobile-web-app-title" content="Shot Tracker">
+<meta name="theme-color" content="#0D0D0D">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="icon" type="image/png" sizes="512x512" href="basketball-icon-512.png">
+<link rel="manifest" href="site.webmanifest">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --orange: #FF5C00;
+    --orange-dim: #FF5C0022;
+    --dark: #0D0D0D;
+    --panel: #161616;
+    --border: #2A2A2A;
+    --text: #E8E8E8;
+    --muted: #777;
+    --green: #39D98A;
+    --red: #FF4D4D;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--dark);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 20px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 2px; color: var(--orange); }
+  .logo span { color: var(--text); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    position: sticky;
+    top: 61px;
+    z-index: 99;
+  }
+  .tab {
+    flex: 1;
+    padding: 13px 10px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab.active { color: var(--orange); border-bottom-color: var(--orange); }
+
+  /* ── SECTIONS ── */
+  .section { display: none; padding: 20px 16px; }
+  .section.active { display: block; }
+
+  /* ── SETTINGS CARD ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 2px;
+    color: var(--orange);
+    margin-bottom: 14px;
+  }
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 14px; color: var(--muted); }
+  .setting-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+  }
+  .setting-input {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 6px 10px;
+    width: 80px;
+    text-align: right;
+    outline: none;
+  }
+  .setting-input:focus { border-color: var(--orange); }
+
+  /* ── ADD SESSION FORM ── */
+  .form-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .date-input {
+    width: 100%;
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    padding: 12px 14px;
+    outline: none;
+    margin-bottom: 18px;
+    -webkit-appearance: none;
+  }
+  .date-input:focus { border-color: var(--orange); }
+
+  .rounds-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .round-cell { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .round-cell label { font-size: 11px; color: var(--muted); font-weight: 600; letter-spacing: 0.5px; }
+  .round-cell input {
+    width: 100%;
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: center;
+    padding: 10px 0;
+    outline: none;
+    -webkit-appearance: none;
+  }
+  .round-cell input:focus { border-color: var(--orange); box-shadow: 0 0 0 2px var(--orange-dim); }
+  .round-cell input::placeholder { color: #333; }
+
+  /* live preview */
+  .live-preview {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 18px;
+  }
+  .prev-item { text-align: center; }
+  .prev-val { font-family: 'Bebas Neue', sans-serif; font-size: 28px; color: var(--orange); }
+  .prev-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+
+  /* ── BUTTON ── */
+  .btn {
+    width: 100%;
+    padding: 15px;
+    border-radius: 12px;
+    border: none;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--orange); color: #fff; }
+  .btn-primary:active { transform: scale(0.97); background: #e05200; }
+  .btn-danger { background: transparent; border: 1px solid var(--red); color: var(--red); font-size: 14px; margin-top: 10px; padding: 10px; letter-spacing: 1px; }
+
+  /* ── SESSION LIST ── */
+  .session-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .session-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px; height: 100%;
+    background: var(--orange);
+    border-radius: 14px 0 0 14px;
+  }
+  .session-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .session-date { font-size: 16px; font-weight: 600; }
+  .session-pct {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 30px;
+    color: var(--orange);
+    line-height: 1;
+  }
+  .session-meta { font-size: 12px; color: var(--muted); }
+  .rounds-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .pill {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .pill span { color: var(--text); font-weight: 500; }
+  .delete-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 0 0 10px;
+    line-height: 1;
+  }
+
+  /* ── DASHBOARD ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-block.full { grid-column: 1 / -1; }
+  .stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 38px;
+    color: var(--orange);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-num.big { font-size: 52px; }
+  .stat-num.green { color: var(--green); }
+  .stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+
+  /* trend bar */
+  .trend-bar-wrap { margin-bottom: 16px; }
+  .trend-bar-wrap .card-title { margin-bottom: 10px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .bar-lbl { font-size: 12px; color: var(--muted); width: 56px; text-align: right; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 8px; background: var(--dark); border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--orange); border-radius: 99px; transition: width 0.5s ease; }
+  .bar-val { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text); width: 32px; }
+
+  /* mini chart */
+  .chart-wrap { margin-bottom: 16px; }
+  canvas { width: 100% !important; border-radius: 12px; }
+
+  /* empty state */
+  .empty {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 52px; margin-bottom: 14px; }
+  .empty p { font-size: 15px; line-height: 1.6; }
+
+
+  /* round timer */
+  .timer-card {
+    background: var(--dark);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .timer-display {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 58px;
+    line-height: 1;
+    color: var(--orange);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+  .timer-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 14px;
+  }
+  .timer-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .timer-btn {
+    padding: 10px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 15px;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+  .timer-btn.primary { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .timer-btn:active { transform: scale(0.97); }
+
+  /* toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--green);
+    color: #000;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 12px 24px;
+    border-radius: 99px;
+    transition: transform 0.3s ease;
+    z-index: 999;
+    white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🏀 Shot<span>Tracker</span></div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('log')">Log Session</div>
+  <div class="tab" onclick="showTab('history')">History</div>
+  <div class="tab" onclick="showTab('dashboard')">Dashboard</div>
+  <div class="tab" onclick="showTab('settings')">Settings</div>
+</div>
+
+<!-- LOG SESSION -->
+<div class="section active" id="tab-log">
+  <div class="card">
+    <div class="card-title">New Session</div>
+    <label class="form-label">Date</label>
+    <input type="date" class="date-input" id="session-date">
+
+    <label class="form-label">Round Length (this session)</label>
+    <div style="display:flex;gap:10px;margin-bottom:18px;align-items:center;">
+      <select id="session-round-length" style="flex:1;background:var(--dark);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;padding:12px 14px;outline:none;-webkit-appearance:none;appearance:none;" oninput="handleRoundLengthChange()">
+        <option value="1">1:00 (1 min)</option>
+        <option value="1.5">1:30 (1.5 min)</option>
+        <option value="2">2:00 (2 min)</option>
+        <option value="2.5">2:30 (2.5 min)</option>
+        <option value="3">3:00 (3 min)</option>
+        <option value="3.25">3:15 (3.25 min)</option>
+        <option value="3.5">3:30 (3.5 min)</option>
+        <option value="3.75">3:45 (3.75 min)</option>
+        <option value="4">4:00 (4 min)</option>
+        <option value="4.5">4:30 (4.5 min)</option>
+        <option value="5">5:00 (5 min)</option>
+        <option value="6">6:00 (6 min)</option>
+        <option value="7">7:00 (7 min)</option>
+        <option value="8">8:00 (8 min)</option>
+        <option value="10">10:00 (10 min)</option>
+      </select>
+      <div style="font-size:12px;color:var(--muted);white-space:nowrap;">~<span id="est-shots-per-round">0</span> shots/round</div>
+    </div>
+
+    <div class="timer-card">
+      <div class="timer-display" id="round-timer-display">3:00</div>
+      <div class="timer-label">Round Timer</div>
+      <div class="timer-controls">
+        <button class="timer-btn primary" onclick="startRoundTimer()">START</button>
+        <button class="timer-btn" onclick="pauseRoundTimer()">PAUSE</button>
+        <button class="timer-btn" onclick="resetRoundTimer()">RESET</button>
+      </div>
+    </div>
+
+    <label class="form-label">Makes per Round (leave blank if unused)</label>
+    <div class="rounds-grid" id="rounds-grid"></div>
+
+    <div class="live-preview" id="live-preview">
+      <div class="prev-item">
+        <div class="prev-val" id="prev-rounds">0</div>
+        <div class="prev-lbl">Rounds</div>
+      </div>
+      <div class="prev-item">
+        <div class="prev-val" id="prev-makes">0</div>
+        <div class="prev-lbl">Total Makes</div>
+      </div>
+      <div class="prev-item">
+        <div class="prev-val" id="prev-shots">0</div>
+        <div class="prev-lbl">Est. Shots</div>
+      </div>
+      <div class="prev-item">
+        <div class="prev-val" id="prev-pct">—</div>
+        <div class="prev-lbl">Est. %</div>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveSession()">SAVE SESSION</button>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="section" id="tab-history">
+  <div id="history-list"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="section" id="tab-dashboard">
+  <div id="dashboard-content"></div>
+</div>
+
+<!-- SETTINGS -->
+<div class="section" id="tab-settings">
+  <div class="card">
+    <div class="card-title">Settings</div>
+    <div class="setting-row">
+      <div class="setting-label">Average shots per minute</div>
+      <input type="number" class="setting-input" id="setting-spm" min="1" max="60" step="0.1">
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:-2px 0 12px;">
+      To find this number: set a timer for 2 minutes and count every shot you attempt. Do not worry about makes or misses. Repeat 4–5 times. Add your shot totals together, divide by the number of rounds to get your average shots in 2 minutes, then divide that number by 2. Enter that final number here.
+      <br><br>Example: 30 + 32 + 28 + 30 = 120 shots. 120 ÷ 4 rounds = 30 shots in 2 minutes. 30 ÷ 2 = 15 shots per minute.
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Default round length (minutes)</div>
+      <input type="number" class="setting-input" id="setting-rl" min="0.5" max="20" step="0.25">
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Max rounds per session</div>
+      <input type="number" class="setting-input" id="setting-mr" min="1" max="20" step="1">
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">Est. shots per round</div>
+      <div class="setting-value" id="est-shots-display">—</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Data</div>
+
+    <button class="btn btn-primary" onclick="shareStats()">SHARE STATS</button>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="exportCSV()">EXPORT TO SPREADSHEET</button>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="downloadBackup()">BACKUP APP DATA</button>
+
+    <label class="btn btn-primary" style="margin-top:10px; display:block; text-align:center;">
+      RESTORE FROM BACKUP
+      <input type="file" accept=".json" onchange="restoreBackup(event)" style="display:none;">
+    </label>
+
+    <button class="btn btn-danger" onclick="clearAllData()">CLEAR ALL SESSION DATA</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────
+const DEFAULT = { shotsPerMin: 16, roundLength: 3, maxRounds: 8 };
+
+function loadSettings() {
+  const s = JSON.parse(localStorage.getItem('bb_settings') || 'null');
+  return s || { ...DEFAULT };
+}
+function saveSettings(s) { localStorage.setItem('bb_settings', JSON.stringify(s)); }
+
+function loadSessions() {
+  return JSON.parse(localStorage.getItem('bb_sessions') || '[]');
+}
+function saveSessions(sessions) { localStorage.setItem('bb_sessions', JSON.stringify(sessions)); }
+
+let settings = loadSettings();
+let sessions = loadSessions();
+
+let timerInterval = null;
+let timerSeconds = 0;
+let audioCtx = null;
+
+// ── HELPERS ───────────────────────────────────────────────────────────
+function estShotsPerRound() { return Math.round(settings.shotsPerMin * settings.roundLength); }
+
+function calcSession(rounds, roundLengthOverride) {
+  const rl = roundLengthOverride !== undefined ? roundLengthOverride : settings.roundLength;
+  const filled = rounds.filter(v => v !== null && v !== '' && !isNaN(v));
+  const totalMakes = filled.reduce((a, b) => a + Number(b), 0);
+  const usedRounds = filled.length;
+  const estShotsPerRound = Math.round(settings.shotsPerMin * rl);
+  const estShots = usedRounds * estShotsPerRound;
+  const pct = estShots > 0 ? totalMakes / estShots : null;
+  return { totalMakes, usedRounds, estShots, pct };
+}
+
+function fmtPct(p) { return p === null ? '—' : (p * 100).toFixed(1) + '%'; }
+function fmtRoundLen(rl) {
+  const mins = Math.floor(rl);
+  const secs = Math.round((rl - mins) * 60);
+  return secs > 0 ? `${mins}:${String(secs).padStart(2,'0')}` : `${mins}:00`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  const [y,m,day] = d.split('-');
+  return new Date(y, m-1, day).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (id === 'history') renderHistory();
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'settings') renderSettings();
+}
+
+// ── LOG SECTION ────────────────────────────────────────────────────────
+function buildLogForm() {
+  const today = new Date();
+  const iso = today.toISOString().split('T')[0];
+  document.getElementById('session-date').value = iso;
+
+  // Set dropdown to closest match to settings round length
+  const sel = document.getElementById('session-round-length');
+  const opts = Array.from(sel.options).map(o => parseFloat(o.value));
+  const closest = opts.reduce((a,b) => Math.abs(b - settings.roundLength) < Math.abs(a - settings.roundLength) ? b : a);
+  sel.value = closest;
+
+  const grid = document.getElementById('rounds-grid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= settings.maxRounds; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'round-cell';
+    cell.innerHTML = `<label>R${i}</label>
+      <input type="number" inputmode="numeric" min="0" max="200" placeholder="—" id="r${i}" oninput="updatePreview()">`;
+    grid.appendChild(cell);
+  }
+  updatePreview();
+  resetRoundTimer();
+}
+
+function getRoundValues() {
+  const vals = [];
+  for (let i = 1; i <= settings.maxRounds; i++) {
+    const el = document.getElementById('r' + i);
+    vals.push(el ? el.value.trim() : '');
+  }
+  return vals;
+}
+
+function getSessionRoundLength() {
+  const sel = document.getElementById('session-round-length');
+  return sel ? parseFloat(sel.value) : settings.roundLength;
+}
+
+function secondsForRoundLength() {
+  return Math.max(1, Math.round(getSessionRoundLength() * 60));
+}
+
+function formatTimer(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+  const el = document.getElementById('round-timer-display');
+  if (el) el.textContent = formatTimer(timerSeconds);
+}
+
+function handleRoundLengthChange() {
+  updatePreview();
+  resetRoundTimer();
+}
+
+function ensureAudioReady() {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) {}
+}
+
+function playAlarm() {
+  try {
+    ensureAudioReady();
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    [0, 0.22, 0.44].forEach(offset => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now + offset);
+      gain.gain.setValueAtTime(0.0001, now + offset);
+      gain.gain.exponentialRampToValueAtTime(0.35, now + offset + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.16);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now + offset);
+      osc.stop(now + offset + 0.18);
+    });
+  } catch (e) {}
+}
+
+function startRoundTimer() {
+  ensureAudioReady();
+  if (timerSeconds <= 0) timerSeconds = secondsForRoundLength();
+  updateTimerDisplay();
+  if (timerInterval) return;
+  timerInterval = setInterval(() => {
+    timerSeconds -= 1;
+    updateTimerDisplay();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerSeconds = 0;
+      updateTimerDisplay();
+      playAlarm();
+      setTimeout(promptForRoundMakes, 250);
+    }
+  }, 1000);
+}
+
+function pauseRoundTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function resetRoundTimer() {
+  pauseRoundTimer();
+  timerSeconds = secondsForRoundLength();
+  updateTimerDisplay();
+}
+
+function promptForRoundMakes() {
+  const entry = prompt('Round complete. Enter makes for this round:');
+  if (entry === null) { resetRoundTimer(); return; }
+  const trimmed = entry.trim();
+  if (trimmed === '') { resetRoundTimer(); return; }
+  const makes = Number(trimmed);
+  if (!Number.isFinite(makes) || makes < 0) {
+    alert('Please enter a valid number of makes.');
+    resetRoundTimer();
+    return;
+  }
+
+  const vals = getRoundValues();
+  const nextIndex = vals.findIndex(v => v === '' || v === null || isNaN(v));
+  if (nextIndex === -1) {
+    toast('No empty rounds left');
+    resetRoundTimer();
+    return;
+  }
+
+  const input = document.getElementById('r' + (nextIndex + 1));
+  if (input) {
+    input.value = makes;
+    updatePreview();
+    toast(`Added to R${nextIndex + 1}`);
+  }
+  resetRoundTimer();
+}
+
+function updatePreview() {
+  const rl = getSessionRoundLength();
+  const estPerRound = Math.round(settings.shotsPerMin * rl);
+  const el = document.getElementById('est-shots-per-round');
+  if (el) el.textContent = estPerRound;
+
+  const vals = getRoundValues();
+  const { totalMakes, usedRounds, estShots, pct } = calcSession(vals, rl);
+  document.getElementById('prev-rounds').textContent = usedRounds;
+  document.getElementById('prev-makes').textContent = totalMakes;
+  document.getElementById('prev-shots').textContent = estShots;
+  document.getElementById('prev-pct').textContent = fmtPct(pct);
+}
+
+function saveSession() {
+  const date = document.getElementById('session-date').value;
+  if (!date) { toast('Please pick a date'); return; }
+  const vals = getRoundValues();
+  const filled = vals.filter(v => v !== '' && !isNaN(v) && v !== null);
+  if (filled.length === 0) { toast('Enter at least one round'); return; }
+
+  const roundLength = getSessionRoundLength();
+  const { totalMakes, usedRounds, estShots, pct } = calcSession(vals, roundLength);
+  const session = { date, rounds: vals, roundLength, totalMakes, usedRounds, estShots, pct, id: Date.now() };
+  sessions.push(session);
+  sessions.sort((a,b) => a.date.localeCompare(b.date));
+  saveSessions(sessions);
+
+  // clear form
+  for (let i = 1; i <= settings.maxRounds; i++) {
+    const el = document.getElementById('r' + i);
+    if (el) el.value = '';
+  }
+  updatePreview();
+  toast('Session saved! 🏀');
+}
+
+// ── HISTORY ────────────────────────────────────────────────────────────
+function renderHistory() {
+  const el = document.getElementById('history-list');
+  if (sessions.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><p>No sessions yet.<br>Log your first session!</p></div>`;
+    return;
+  }
+  const sorted = [...sessions].reverse();
+  el.innerHTML = sorted.map(s => {
+    const rounds = s.rounds.map((v,i) => {
+      if (v === '' || v === null || isNaN(v)) return '';
+      return `<div class="pill">R${i+1} <span>${v}</span></div>`;
+    }).join('');
+    return `<div class="session-card">
+      <div class="session-header">
+        <div>
+          <div class="session-date">${fmtDate(s.date)}</div>
+          <div class="session-meta">${s.usedRounds} rounds · ${s.roundLength ? fmtRoundLen(s.roundLength) + '/round · ' : ''}${s.totalMakes} makes · ~${s.estShots} shots</div>
+        </div>
+        <div style="display:flex;align-items:center;">
+          <div class="session-pct">${fmtPct(s.pct)}</div>
+          <button class="delete-btn" onclick="deleteSession(${s.id})">×</button>
+        </div>
+      </div>
+      <div class="rounds-pills">${rounds}</div>
+    </div>`;
+  }).join('');
+}
+
+function deleteSession(id) {
+  if (!confirm('Delete this session?')) return;
+  sessions = sessions.filter(s => s.id !== id);
+  saveSessions(sessions);
+  renderHistory();
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────────────
+function renderDashboard() {
+  const el = document.getElementById('dashboard-content');
+  if (sessions.length === 0) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📊</div><p>No sessions logged yet.<br>Start tracking to see your stats!</p></div>`;
+    return;
+  }
+
+  const totalMakes = sessions.reduce((a,s) => a + s.totalMakes, 0);
+  const totalShots = sessions.reduce((a,s) => a + s.estShots, 0);
+  const overallPct = totalShots > 0 ? totalMakes / totalShots : null;
+  const avgPct = sessions.reduce((a,s) => a + (s.pct||0), 0) / sessions.length;
+
+  const best = sessions.reduce((b,s) => (s.pct||0) > (b.pct||0) ? s : b, sessions[0]);
+  const bestMakes = sessions.reduce((b,s) => s.totalMakes > b.totalMakes ? s : b, sessions[0]);
+
+  // per-round averages
+  const roundTotals = Array(settings.maxRounds).fill(0);
+  const roundCounts = Array(settings.maxRounds).fill(0);
+  sessions.forEach(s => {
+    s.rounds.forEach((v,i) => {
+      if (v !== '' && v !== null && !isNaN(v)) {
+        roundTotals[i] += Number(v);
+        roundCounts[i]++;
+      }
+    });
+  });
+  const roundAvgs = roundTotals.map((t,i) => roundCounts[i] > 0 ? (t/roundCounts[i]).toFixed(1) : null);
+  const maxAvg = Math.max(...roundAvgs.filter(v => v !== null));
+
+  // last 5 vs prior 5
+  const last5 = sessions.slice(-5);
+  const prior5 = sessions.slice(-10, -5);
+  const avgLast5 = last5.reduce((a,s)=>a+(s.pct||0),0)/last5.length;
+  const avgPrior5 = prior5.length > 0 ? prior5.reduce((a,s)=>a+(s.pct||0),0)/prior5.length : null;
+  const trendColor = avgPrior5 !== null && avgLast5 > avgPrior5 ? 'green' : '';
+
+  // round bars
+  const barsHtml = roundAvgs.map((v,i) => {
+    if (v === null) return '';
+    const pct = maxAvg > 0 ? (v/maxAvg)*100 : 0;
+    return `<div class="bar-row">
+      <div class="bar-lbl">Rd ${i+1}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      <div class="bar-val">${v}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-block full">
+        <div class="stat-num big">${fmtPct(overallPct)}</div>
+        <div class="stat-lbl">Overall Estimated Make %</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">${sessions.length}</div>
+        <div class="stat-lbl">Sessions</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">${(avgPct*100).toFixed(1)}%</div>
+        <div class="stat-lbl">Avg % / Session</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">${totalMakes}</div>
+        <div class="stat-lbl">Total Makes</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">${Math.round(totalShots)}</div>
+        <div class="stat-lbl">Est. Total Shots</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num ${trendColor}">${fmtPct(avgLast5)}</div>
+        <div class="stat-lbl">Last 5 Avg %</div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-num">${fmtPct(avgPrior5)}</div>
+        <div class="stat-lbl">Prior 5 Avg %</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Best Sessions</div>
+      <div class="setting-row">
+        <div class="setting-label">Best make %</div>
+        <div style="text-align:right">
+          <div style="font-weight:600">${fmtPct(best.pct)}</div>
+          <div style="font-size:12px;color:var(--muted)">${fmtDate(best.date)}</div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="setting-label">Most makes</div>
+        <div style="text-align:right">
+          <div style="font-weight:600">${bestMakes.totalMakes}</div>
+          <div style="font-size:12px;color:var(--muted)">${fmtDate(bestMakes.date)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card trend-bar-wrap">
+      <div class="card-title">Avg Makes by Round</div>
+      ${barsHtml || '<p style="color:var(--muted);font-size:13px">Not enough data</p>'}
+    </div>
+
+    <div class="card chart-wrap">
+      <div class="card-title">Make % Over Time</div>
+      <canvas id="pctChart" height="180"></canvas>
+    </div>
+  `;
+
+  drawChart();
+}
+
+function drawChart() {
+  const canvas = document.getElementById('pctChart');
+  if (!canvas || sessions.length < 2) {
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#777';
+      ctx.font = '13px DM Sans';
+      ctx.textAlign = 'center';
+      ctx.fillText('Need 2+ sessions for chart', canvas.width/2, 90);
+    }
+    return;
+  }
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 340;
+  const H = 180;
+  canvas.width = W * window.devicePixelRatio;
+  canvas.height = H * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  const data = sessions.map(s => s.pct || 0);
+  const labels = sessions.map(s => { const [,m,d] = s.date.split('-'); return `${m}/${d}`; });
+  const minVal = Math.min(...data) * 0.95;
+  const maxVal = Math.max(...data) * 1.05;
+  const pad = { l:10, r:10, t:20, b:30 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  function xPos(i) { return pad.l + (i / (data.length-1)) * plotW; }
+  function yPos(v) { return pad.t + (1 - (v-minVal)/(maxVal-minVal)) * plotH; }
+
+  // gradient fill
+  const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + plotH);
+  grad.addColorStop(0, 'rgba(255,92,0,0.35)');
+  grad.addColorStop(1, 'rgba(255,92,0,0)');
+
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(data[0]));
+  data.forEach((v,i) => { if(i>0) ctx.lineTo(xPos(i), yPos(v)); });
+  ctx.lineTo(xPos(data.length-1), H-pad.b);
+  ctx.lineTo(xPos(0), H-pad.b);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // line
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(data[0]));
+  data.forEach((v,i) => { if(i>0) ctx.lineTo(xPos(i), yPos(v)); });
+  ctx.strokeStyle = '#FF5C00';
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // dots
+  data.forEach((v,i) => {
+    ctx.beginPath();
+    ctx.arc(xPos(i), yPos(v), 4, 0, Math.PI*2);
+    ctx.fillStyle = '#FF5C00';
+    ctx.fill();
+    ctx.strokeStyle = '#0D0D0D';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  // labels
+  ctx.fillStyle = '#777';
+  ctx.font = `10px DM Mono`;
+  ctx.textAlign = 'center';
+  labels.forEach((l,i) => { ctx.fillText(l, xPos(i), H-8); });
+
+  // % labels on dots
+  ctx.fillStyle = '#E8E8E8';
+  ctx.font = `bold 10px DM Mono`;
+  data.forEach((v,i) => {
+    ctx.fillText((v*100).toFixed(1)+'%', xPos(i), yPos(v)-10);
+  });
+}
+
+// ── SETTINGS ────────────────────────────────────────────────────────────
+function renderSettings() {
+  document.getElementById('setting-spm').value = settings.shotsPerMin;
+  document.getElementById('setting-rl').value = settings.roundLength;
+  document.getElementById('setting-mr').value = settings.maxRounds;
+  updateEstDisplay();
+}
+
+function updateEstDisplay() {
+  const spm = parseFloat(document.getElementById('setting-spm').value) || settings.shotsPerMin;
+  const rl  = parseFloat(document.getElementById('setting-rl').value) || settings.roundLength;
+  document.getElementById('est-shots-display').textContent = Math.round(spm * rl);
+}
+
+document.addEventListener('input', e => {
+  if (['setting-spm','setting-rl','setting-mr'].includes(e.target.id)) {
+    updateEstDisplay();
+    const spm = parseFloat(document.getElementById('setting-spm').value);
+    const rl  = parseFloat(document.getElementById('setting-rl').value);
+    const mr  = parseInt(document.getElementById('setting-mr').value);
+    if (spm > 0 && rl > 0 && mr > 0) {
+      settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr };
+      saveSettings(settings);
+      buildLogForm(); // rebuild if maxRounds changed
+    }
+  }
+});
+
+// ── EXPORT / BACKUP / SHARE ───────────────────────────────────────────
+function csvEscape(value) {
+  const s = String(value ?? '');
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCSV() {
+  if (sessions.length === 0) { toast('No data to export'); return; }
+
+  const maxRounds = Math.max(settings.maxRounds || 8, ...sessions.map(s => (s.rounds || []).length));
+  const roundHeaders = Array.from({ length: maxRounds }, (_, i) => `R${i + 1}`);
+  const headers = ['Date', 'Round Length', ...roundHeaders, 'Total Makes', 'Estimated Shots', 'Estimated %'];
+
+  const rows = sessions.map(s => {
+    const rounds = (s.rounds || []).slice(0, maxRounds);
+    while (rounds.length < maxRounds) rounds.push('');
+    return [
+      s.date,
+      s.roundLength ?? '',
+      ...rounds,
+      s.totalMakes ?? '',
+      s.estShots ?? '',
+      s.pct !== null && s.pct !== undefined ? (s.pct * 100).toFixed(1) + '%' : ''
+    ];
+  });
+
+  const csv = [headers, ...rows].map(row => row.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'shot-tracker-data.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('CSV exported');
+}
+
+function downloadBackup() {
+  const backup = {
+    app: 'Shot Tracker',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings,
+    sessions
+  };
+
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'shot-tracker-backup.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast('Backup downloaded');
+}
+
+function restoreBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data || !Array.isArray(data.sessions) || typeof data.settings !== 'object') {
+        throw new Error('Invalid backup file');
+      }
+      if (!confirm('This will replace all current data. Continue?')) return;
+
+      sessions = data.sessions;
+      settings = { ...DEFAULT, ...data.settings };
+      saveSessions(sessions);
+      saveSettings(settings);
+      buildLogForm();
+      renderSettings();
+      renderHistory();
+      renderDashboard();
+      toast('Backup restored');
+    } catch (err) {
+      alert('Invalid backup file');
+    } finally {
+      event.target.value = '';
+    }
+  };
+  reader.readAsText(file);
+}
+
+function buildStatsText() {
+  if (sessions.length === 0) return 'Shot Tracker Stats: No sessions logged yet.';
+
+  const totalMakes = sessions.reduce((a, s) => a + (Number(s.totalMakes) || 0), 0);
+  const totalShots = sessions.reduce((a, s) => a + (Number(s.estShots) || 0), 0);
+  const overallPct = totalShots > 0 ? totalMakes / totalShots : null;
+  const best = sessions.reduce((b, s) => ((s.pct || 0) > (b.pct || 0) ? s : b), sessions[0]);
+  const last5 = sessions.slice(-5);
+  const last5Shots = last5.reduce((a, s) => a + (Number(s.estShots) || 0), 0);
+  const last5Makes = last5.reduce((a, s) => a + (Number(s.totalMakes) || 0), 0);
+  const last5Pct = last5Shots > 0 ? last5Makes / last5Shots : null;
+
+  return [
+    '🏀 Shot Tracker Stats',
+    `Sessions: ${sessions.length}`,
+    `Overall: ${fmtPct(overallPct)}`,
+    `Total Makes: ${totalMakes}`,
+    `Estimated Shots: ${Math.round(totalShots)}`,
+    `Last 5: ${fmtPct(last5Pct)}`,
+    `Best Session: ${fmtPct(best.pct)} on ${fmtDate(best.date)}`
+  ].join('\n');
+}
+
+async function shareStats() {
+  const text = buildStatsText();
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Shot Tracker Stats', text });
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast('Stats copied');
+      return;
+    } catch (err) {}
+  }
+
+  prompt('Copy your stats:', text);
+}
+
+function clearAllData() {
+  if (!confirm('Delete ALL session data? This cannot be undone.')) return;
+  sessions = [];
+  saveSessions(sessions);
+  renderHistory();
+  renderDashboard();
+  toast('All data cleared');
+}
+
+// ── INIT ────────────────────────────────────────────────────────────────
+// No starter session data is preloaded. Each user starts with an empty tracker.
+
+buildLogForm();
+</script>
+</body>
+</html>
