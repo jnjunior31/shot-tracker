@@ -491,9 +491,10 @@
       <div class="setting-label">Voice time announcements</div>
       <input type="checkbox" id="setting-voice" style="width:22px;height:22px;accent-color:var(--orange);">
     </div>
-    <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 0;">
+    <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 10px;">
       When turned on, the timer will say “Two minutes left,” “One minute left,” “Thirty seconds,” and “Ten seconds” during a round.
     </div>
+    <button class="btn btn-primary" style="margin-top:10px;" onclick="testVoiceAnnouncement()">TEST VOICE ANNOUNCEMENT</button>
   </div>
 
   <div class="card">
@@ -590,6 +591,7 @@ let timerSeconds = 0;
 let roundFinished = false;
 let buzzerStopTimeout = null;
 let announcedTimeMarkers = new Set();
+let speechUnlocked = false;
 
 // ── HELPERS ───────────────────────────────────────────────────────────
 function estShotsPerRound() { return Math.round(settings.shotsPerMin * settings.roundLength); }
@@ -689,6 +691,26 @@ function updateTimerDisplay() {
   if (el) el.textContent = formatTimer(timerSeconds);
 }
 
+function unlockSpeechAnnouncements() {
+  if (!settings.voiceAnnouncements) return;
+  if (!('speechSynthesis' in window)) return;
+  if (speechUnlocked) return;
+
+  // iOS/Safari often requires speech to be initialized from a user tap.
+  // This silent utterance primes speech on the Start button tap without making noise.
+  try {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.resume();
+    const silent = new SpeechSynthesisUtterance('ready');
+    silent.volume = 0;
+    silent.rate = 1;
+    silent.pitch = 1;
+    silent.lang = 'en-US';
+    window.speechSynthesis.speak(silent);
+    speechUnlocked = true;
+  } catch (e) {}
+}
+
 function speakTimeAnnouncement(secondsLeft) {
   if (!settings.voiceAnnouncements) return;
   if (!('speechSynthesis' in window)) return;
@@ -706,13 +728,35 @@ function speakTimeAnnouncement(secondsLeft) {
   announcedTimeMarkers.add(secondsLeft);
 
   try {
+    window.speechSynthesis.resume();
     window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.rate = 1;
     utterance.pitch = 1;
     utterance.volume = 1;
-    window.speechSynthesis.speak(utterance);
+    utterance.lang = 'en-US';
+
+    // Small delay helps iOS/Safari speak reliably after cancel/resume.
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {}
+    }, 80);
   } catch (e) {}
+}
+
+function testVoiceAnnouncement() {
+  if (!('speechSynthesis' in window)) {
+    toast('Voice announcements not supported');
+    return;
+  }
+  const previous = settings.voiceAnnouncements;
+  settings.voiceAnnouncements = true;
+  unlockSpeechAnnouncements();
+  setTimeout(() => speakTimeAnnouncement(10), 150);
+  settings.voiceAnnouncements = previous;
 }
 
 function handleRoundLengthChange() {
@@ -775,6 +819,7 @@ function playBuzzer() {
 
 function startRoundTimer() {
   primeBuzzer();
+  unlockSpeechAnnouncements();
   const startingNewRound = timerSeconds <= 0 || timerSeconds === secondsForRoundLength();
   if (timerSeconds <= 0) timerSeconds = secondsForRoundLength();
   if (startingNewRound) {
