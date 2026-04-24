@@ -539,7 +539,7 @@
 // ── SMART VERSIONING / CACHE BUSTING ──────────────────────────────────
 // When you publish a new app version, update version.json with the same version value.
 // This does not delete localStorage session data.
-const APP_VERSION = '2026.04.24.1';
+const APP_VERSION = '2026.04.24.2';
 (function checkForAppUpdate() {
   fetch('version.json?cache=' + Date.now(), { cache: 'no-store' })
     .then(response => response.ok ? response.json() : null)
@@ -580,7 +580,6 @@ let sessions = loadSessions();
 
 let timerInterval = null;
 let timerSeconds = 0;
-let buzzerPrimed = false;
 let roundFinished = false;
 let buzzerStopTimeout = null;
 
@@ -689,29 +688,16 @@ function handleRoundLengthChange() {
 
 function primeBuzzer() {
   const sound = document.getElementById('buzzerSound');
-  if (!sound || buzzerPrimed) return;
+  if (!sound) return;
 
-  // iOS is more reliable when audio is initialized after the user taps Start.
+  // Do not call sound.play() here. On iOS/Safari, trying to "unlock" audio
+  // on the first Start tap can accidentally make the buzzer sound immediately.
+  // The buzzer should only play inside playBuzzer(), when the timer reaches zero.
   try {
     sound.load();
-    const originalVolume = sound.volume;
-    sound.volume = 0;
-    const attempt = sound.play();
-    if (attempt && typeof attempt.then === 'function') {
-      attempt.then(() => {
-        sound.pause();
-        sound.currentTime = 0;
-        sound.volume = originalVolume || 1;
-        buzzerPrimed = true;
-      }).catch(() => {
-        sound.volume = originalVolume || 1;
-      });
-    } else {
-      sound.pause();
-      sound.currentTime = 0;
-      sound.volume = originalVolume || 1;
-      buzzerPrimed = true;
-    }
+    sound.pause();
+    sound.currentTime = 0;
+    sound.loop = false;
   } catch (e) {}
 }
 
