@@ -487,6 +487,13 @@
       <div class="setting-label">Est. shots per round</div>
       <div class="setting-value" id="est-shots-display">—</div>
     </div>
+    <div class="setting-row">
+      <div class="setting-label">Voice time announcements</div>
+      <input type="checkbox" id="setting-voice" style="width:22px;height:22px;accent-color:var(--orange);">
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 0;">
+      When turned on, the timer will say “Two minutes left,” “One minute left,” “Thirty seconds,” and “Ten seconds” during a round.
+    </div>
   </div>
 
   <div class="card">
@@ -539,7 +546,7 @@
 // ── SMART VERSIONING / CACHE BUSTING ──────────────────────────────────
 // When you publish a new app version, update version.json with the same version value.
 // This does not delete localStorage session data.
-const APP_VERSION = '2026.04.24.2';
+const APP_VERSION = '2026.04.24.3';
 (function checkForAppUpdate() {
   fetch('version.json?cache=' + Date.now(), { cache: 'no-store' })
     .then(response => response.ok ? response.json() : null)
@@ -562,11 +569,11 @@ const APP_VERSION = '2026.04.24.2';
 })();
 
 // ── STATE ──────────────────────────────────────────────────────────────
-const DEFAULT = { shotsPerMin: 16, roundLength: 3, maxRounds: 8 };
+const DEFAULT = { shotsPerMin: 16, roundLength: 3, maxRounds: 8, voiceAnnouncements: true };
 
 function loadSettings() {
   const s = JSON.parse(localStorage.getItem('bb_settings') || 'null');
-  return s || { ...DEFAULT };
+  return s ? { ...DEFAULT, ...s } : { ...DEFAULT };
 }
 function saveSettings(s) { localStorage.setItem('bb_settings', JSON.stringify(s)); }
 
@@ -683,6 +690,7 @@ function updateTimerDisplay() {
 }
 
 function speakTimeAnnouncement(secondsLeft) {
+  if (!settings.voiceAnnouncements) return;
   if (!('speechSynthesis' in window)) return;
 
   const messages = {
@@ -1169,6 +1177,8 @@ function renderSettings() {
   document.getElementById('setting-spm').value = settings.shotsPerMin;
   document.getElementById('setting-rl').value = settings.roundLength;
   document.getElementById('setting-mr').value = settings.maxRounds;
+  const voiceEl = document.getElementById('setting-voice');
+  if (voiceEl) voiceEl.checked = settings.voiceAnnouncements !== false;
   updateEstDisplay();
 }
 
@@ -1179,13 +1189,15 @@ function updateEstDisplay() {
 }
 
 document.addEventListener('input', e => {
-  if (['setting-spm','setting-rl','setting-mr'].includes(e.target.id)) {
+  if (['setting-spm','setting-rl','setting-mr','setting-voice'].includes(e.target.id)) {
     updateEstDisplay();
     const spm = parseFloat(document.getElementById('setting-spm').value);
     const rl  = parseFloat(document.getElementById('setting-rl').value);
     const mr  = parseInt(document.getElementById('setting-mr').value);
+    const voiceEl = document.getElementById('setting-voice');
+    const voiceAnnouncements = voiceEl ? voiceEl.checked : true;
     if (spm > 0 && rl > 0 && mr > 0) {
-      settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr };
+      settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr, voiceAnnouncements };
       saveSettings(settings);
       buildLogForm(); // rebuild if maxRounds changed
     }
