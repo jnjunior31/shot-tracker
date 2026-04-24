@@ -5,13 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Shot Tracker</title>
 <meta name="apple-mobile-web-app-title" content="Shot Tracker">
 <meta name="theme-color" content="#0D0D0D">
-<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="icon" type="image/png" sizes="512x512" href="basketball-icon-512.png">
 <link rel="manifest" href="site.webmanifest">
+<title>Shot Tracker</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -532,6 +535,32 @@
 </div>
 
 <script>
+
+// ── SMART VERSIONING / CACHE BUSTING ──────────────────────────────────
+// When you publish a new app version, update version.json with the same version value.
+// This does not delete localStorage session data.
+const APP_VERSION = '2026.04.24.1';
+(function checkForAppUpdate() {
+  fetch('version.json?cache=' + Date.now(), { cache: 'no-store' })
+    .then(response => response.ok ? response.json() : null)
+    .then(data => {
+      if (!data || !data.version) return;
+      const latestVersion = String(data.version);
+      if (latestVersion === APP_VERSION) return;
+
+      const reloadKey = 'shot_tracker_reload_' + latestVersion;
+      if (sessionStorage.getItem(reloadKey)) return;
+      sessionStorage.setItem(reloadKey, '1');
+
+      const freshUrl = new URL(window.location.href);
+      freshUrl.searchParams.set('v', latestVersion);
+      window.location.replace(freshUrl.toString());
+    })
+    .catch(() => {
+      // If version.json cannot be reached, the app still works normally.
+    });
+})();
+
 // ── STATE ──────────────────────────────────────────────────────────────
 const DEFAULT = { shotsPerMin: 16, roundLength: 3, maxRounds: 8 };
 
