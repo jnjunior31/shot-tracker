@@ -596,15 +596,42 @@ let speechUnlocked = false;
 // ── HELPERS ───────────────────────────────────────────────────────────
 function estShotsPerRound() { return Math.round(settings.shotsPerMin * settings.roundLength); }
 
-function calcSession(rounds, roundLengthOverride) {
+function calcSession(rounds, roundLengthOverride, shotsPerMinOverride) {
   const rl = roundLengthOverride !== undefined ? roundLengthOverride : settings.roundLength;
+  const spm = shotsPerMinOverride !== undefined ? shotsPerMinOverride : settings.shotsPerMin;
   const filled = rounds.filter(v => v !== null && v !== '' && !isNaN(v));
   const totalMakes = filled.reduce((a, b) => a + Number(b), 0);
   const usedRounds = filled.length;
-  const estShotsPerRound = Math.round(settings.shotsPerMin * rl);
+  const estShotsPerRound = Math.round(spm * rl);
   const estShots = usedRounds * estShotsPerRound;
   const pct = estShots > 0 ? totalMakes / estShots : null;
-  return { totalMakes, usedRounds, estShots, pct };
+  return { totalMakes, usedRounds, estShots, pct, estShotsPerRound };
+}
+
+function getSessionShotsPerMin(session) {
+  if (session && session.shotsPerMin !== undefined && !isNaN(session.shotsPerMin)) {
+    return Number(session.shotsPerMin);
+  }
+  return settings.shotsPerMin;
+}
+
+function getEstimatedShotsForRound(session) {
+  if (!session) return 0;
+
+  // New sessions save the shots-per-minute setting used at the time.
+  if (session.shotsPerMin !== undefined && !isNaN(session.shotsPerMin)) {
+    const rl = session.roundLength !== undefined ? Number(session.roundLength) : settings.roundLength;
+    return Math.round(Number(session.shotsPerMin) * rl);
+  }
+
+  // Older sessions did not store shotsPerMin. Use the saved session totals when possible
+  // so changing today's setting does not rewrite past session math.
+  if (session.usedRounds > 0 && session.estShots > 0) {
+    return session.estShots / session.usedRounds;
+  }
+
+  const rl = session.roundLength !== undefined ? Number(session.roundLength) : settings.roundLength;
+  return Math.round(settings.shotsPerMin * rl);
 }
 
 function fmtPct(p) { return p === null ? '—' : (p * 100).toFixed(1) + '%'; }
@@ -976,8 +1003,9 @@ function saveSession() {
   if (filled.length === 0) { toast('Enter at least one round'); return; }
 
   const roundLength = getSessionRoundLength();
-  const { totalMakes, usedRounds, estShots, pct } = calcSession(vals, roundLength);
-  const session = { date, rounds: vals, roundLength, totalMakes, usedRounds, estShots, pct, id: Date.now() };
+  const shotsPerMin = settings.shotsPerMin;
+  const { totalMakes, usedRounds, estShots, pct, estShotsPerRound } = calcSession(vals, roundLength, shotsPerMin);
+  const session = { date, rounds: vals, roundLength, shotsPerMin, estShotsPerRound, totalMakes, usedRounds, estShots, pct, id: Date.now() };
   sessions.push(session);
   sessions.sort((a,b) => a.date.localeCompare(b.date));
   saveSessions(sessions);
@@ -1043,19 +1071,23 @@ function renderDashboard() {
   const best = sessions.reduce((b,s) => (s.pct||0) > (b.pct||0) ? s : b, sessions[0]);
   const bestMakes = sessions.reduce((b,s) => s.totalMakes > b.totalMakes ? s : b, sessions[0]);
 
-  // per-round averages
-  const roundTotals = Array(settings.maxRounds).fill(0);
+  // per-round performance averages, normalized by each session's saved round length and shots/min.
+  // This keeps longer rounds or later changes to shots/min from skewing the dashboard.
+  const roundPctTotals = Array(settings.maxRounds).fill(0);
   const roundCounts = Array(settings.maxRounds).fill(0);
   sessions.forEach(s => {
-    s.rounds.forEach((v,i) => {
-      if (v !== '' && v !== null && !isNaN(v)) {
-        roundTotals[i] += Number(v);
+    const estShotsForRound = getEstimatedShotsForRound(s);
+    (s.rounds || []).forEach((v,i) => {
+      if (i >= settings.maxRounds) return;
+      if (v !== '' && v !== null && !isNaN(v) && estShotsForRound > 0) {
+        roundPctTotals[i] += Number(v) / estShotsForRound;
         roundCounts[i]++;
       }
     });
   });
-  const roundAvgs = roundTotals.map((t,i) => roundCounts[i] > 0 ? (t/roundCounts[i]).toFixed(1) : null);
-  const maxAvg = Math.max(...roundAvgs.filter(v => v !== null));
+  const roundAvgs = roundPctTotals.map((t,i) => roundCounts[i] > 0 ? t / roundCounts[i] : null);
+  const validRoundAvgs = roundAvgs.filter(v => v !== null);
+  const maxAvg = validRoundAvgs.length > 0 ? Math.max(...validRoundAvgs) : 0;
 
   // last 5 vs prior 5
   const last5 = sessions.slice(-5);
@@ -1071,7 +1103,7 @@ function renderDashboard() {
     return `<div class="bar-row">
       <div class="bar-lbl">Rd ${i+1}</div>
       <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-      <div class="bar-val">${v}</div>
+      <div class="bar-val">${(v * 100).toFixed(1)}%</div>
     </div>`;
   }).join('');
 
@@ -1126,8 +1158,9 @@ function renderDashboard() {
     </div>
 
     <div class="card trend-bar-wrap">
-      <div class="card-title">Avg Makes by Round</div>
+      <div class="card-title">Avg Make % by Round</div>
       ${barsHtml || '<p style="color:var(--muted);font-size:13px">Not enough data</p>'}
+      <p style="color:var(--muted);font-size:12px;line-height:1.5;margin-top:10px;">Normalized by each session’s saved round length and shots/min.</p>
     </div>
 
     <div class="card chart-wrap">
@@ -1285,7 +1318,7 @@ function exportCSV() {
 
   const maxRounds = Math.max(settings.maxRounds || 8, ...sessions.map(s => (s.rounds || []).length));
   const roundHeaders = Array.from({ length: maxRounds }, (_, i) => `R${i + 1}`);
-  const headers = ['Date', 'Round Length', ...roundHeaders, 'Total Makes', 'Estimated Shots', 'Estimated %'];
+  const headers = ['Date', 'Round Length', 'Shots/Min Used', 'Est Shots/Round', ...roundHeaders, 'Total Makes', 'Estimated Shots', 'Estimated %'];
 
   const rows = sessions.map(s => {
     const rounds = (s.rounds || []).slice(0, maxRounds);
@@ -1293,6 +1326,8 @@ function exportCSV() {
     return [
       s.date,
       s.roundLength ?? '',
+      s.shotsPerMin ?? '',
+      s.estShotsPerRound ?? getEstimatedShotsForRound(s),
       ...rounds,
       s.totalMakes ?? '',
       s.estShots ?? '',
