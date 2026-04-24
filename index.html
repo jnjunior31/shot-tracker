@@ -582,6 +582,7 @@ let timerInterval = null;
 let timerSeconds = 0;
 let roundFinished = false;
 let buzzerStopTimeout = null;
+let announcedTimeMarkers = new Set();
 
 // ── HELPERS ───────────────────────────────────────────────────────────
 function estShotsPerRound() { return Math.round(settings.shotsPerMin * settings.roundLength); }
@@ -681,6 +682,31 @@ function updateTimerDisplay() {
   if (el) el.textContent = formatTimer(timerSeconds);
 }
 
+function speakTimeAnnouncement(secondsLeft) {
+  if (!('speechSynthesis' in window)) return;
+
+  const messages = {
+    120: 'Two minutes left',
+    60: 'One minute left',
+    30: 'Thirty seconds',
+    10: 'Ten seconds'
+  };
+
+  const message = messages[secondsLeft];
+  if (!message || announcedTimeMarkers.has(secondsLeft)) return;
+
+  announcedTimeMarkers.add(secondsLeft);
+
+  try {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    window.speechSynthesis.speak(utterance);
+  } catch (e) {}
+}
+
 function handleRoundLengthChange() {
   updatePreview();
   resetRoundTimer();
@@ -741,19 +767,28 @@ function playBuzzer() {
 
 function startRoundTimer() {
   primeBuzzer();
+  const startingNewRound = timerSeconds <= 0 || timerSeconds === secondsForRoundLength();
   if (timerSeconds <= 0) timerSeconds = secondsForRoundLength();
+  if (startingNewRound) {
+    announcedTimeMarkers.clear();
+  }
   roundFinished = false;
   updateTimerDisplay();
   if (timerInterval) return;
   timerInterval = setInterval(() => {
     timerSeconds -= 1;
     updateTimerDisplay();
+    speakTimeAnnouncement(timerSeconds);
     if (timerSeconds <= 0 && !roundFinished) {
       roundFinished = true;
       clearInterval(timerInterval);
       timerInterval = null;
       timerSeconds = 0;
       updateTimerDisplay();
+
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch (e) {}
+      }
 
       // Play the buzzer one time when the round reaches zero.
       playBuzzer();
@@ -775,6 +810,10 @@ function pauseRoundTimer() {
 function resetRoundTimer() {
   pauseRoundTimer();
   roundFinished = false;
+  announcedTimeMarkers.clear();
+  if ('speechSynthesis' in window) {
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+  }
   timerSeconds = secondsForRoundLength();
   updateTimerDisplay();
 }
