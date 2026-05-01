@@ -492,7 +492,18 @@
       <input type="checkbox" id="setting-voice" style="width:22px;height:22px;accent-color:var(--orange);">
     </div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 10px;">
-      When turned on, the timer will say “Two minutes left,” “One minute left,” “Thirty seconds,” and “Ten seconds” during a round.
+      When turned on, the timer will say “3, 2, 1, Go” before each new round and announce “Two minutes left,” “One minute left,” “Thirty seconds,” and “Ten seconds” during a round.
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">End-of-round alert</div>
+      <select id="setting-end-alert" class="setting-input" style="width:135px;text-align:left;">
+        <option value="buzzer">Buzzer</option>
+        <option value="voice">Voice</option>
+        <option value="off">Off</option>
+      </select>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 10px;">
+      Choose what happens when the timer reaches zero. Buzzer uses your buzzer.mp3 file. Voice says “Time’s up.” Off shows the entry popup without playing a sound.
     </div>
     <button class="btn btn-primary" style="margin-top:10px;" onclick="testVoiceAnnouncement()">TEST VOICE ANNOUNCEMENT</button>
   </div>
@@ -547,7 +558,7 @@
 // ── SMART VERSIONING / CACHE BUSTING ──────────────────────────────────
 // When you publish a new app version, update version.json with the same version value.
 // This does not delete localStorage session data.
-const APP_VERSION = '2026.04.24.3';
+const APP_VERSION = '2026.05.01.end-alerts';
 (function checkForAppUpdate() {
   fetch('version.json?cache=' + Date.now(), { cache: 'no-store' })
     .then(response => response.ok ? response.json() : null)
@@ -570,7 +581,7 @@ const APP_VERSION = '2026.04.24.3';
 })();
 
 // ── STATE ──────────────────────────────────────────────────────────────
-const DEFAULT = { shotsPerMin: 16, roundLength: 3, maxRounds: 8, voiceAnnouncements: true };
+const DEFAULT = { shotsPerMin: 16, roundLength: 3, maxRounds: 8, voiceAnnouncements: true, endAlertMode: 'buzzer' };
 
 function loadSettings() {
   const s = JSON.parse(localStorage.getItem('bb_settings') || 'null');
@@ -592,6 +603,8 @@ let roundFinished = false;
 let buzzerStopTimeout = null;
 let announcedTimeMarkers = new Set();
 let speechUnlocked = false;
+let countdownActive = false;
+let countdownTimeouts = [];
 
 // ── HELPERS ───────────────────────────────────────────────────────────
 function estShotsPerRound() { return Math.round(settings.shotsPerMin * settings.roundLength); }
@@ -718,6 +731,11 @@ function updateTimerDisplay() {
   if (el) el.textContent = formatTimer(timerSeconds);
 }
 
+function setTimerDisplayText(text) {
+  const el = document.getElementById('round-timer-display');
+  if (el) el.textContent = text;
+}
+
 function unlockSpeechAnnouncements() {
   if (!settings.voiceAnnouncements) return;
   if (!('speechSynthesis' in window)) return;
@@ -738,10 +756,31 @@ function unlockSpeechAnnouncements() {
   } catch (e) {}
 }
 
-function speakTimeAnnouncement(secondsLeft) {
-  if (!settings.voiceAnnouncements) return;
+function speakMessage(message, options = {}) {
+  if (!message) return;
+  if (options.respectVoiceSetting !== false && !settings.voiceAnnouncements) return;
   if (!('speechSynthesis' in window)) return;
 
+  try {
+    window.speechSynthesis.resume();
+    if (options.cancelExisting !== false) window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(message);
+    utterance.rate = options.rate || 1;
+    utterance.pitch = options.pitch || 1;
+    utterance.volume = options.volume || 1;
+    utterance.lang = 'en-US';
+
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {}
+    }, options.delay || 60);
+  } catch (e) {}
+}
+
+function speakTimeAnnouncement(secondsLeft) {
   const messages = {
     120: 'Two minutes left',
     60: 'One minute left',
@@ -751,27 +790,8 @@ function speakTimeAnnouncement(secondsLeft) {
 
   const message = messages[secondsLeft];
   if (!message || announcedTimeMarkers.has(secondsLeft)) return;
-
   announcedTimeMarkers.add(secondsLeft);
-
-  try {
-    window.speechSynthesis.resume();
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(message);
-    utterance.rate = 1;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    utterance.lang = 'en-US';
-
-    // Small delay helps iOS/Safari speak reliably after cancel/resume.
-    setTimeout(() => {
-      try {
-        window.speechSynthesis.resume();
-        window.speechSynthesis.speak(utterance);
-      } catch (e) {}
-    }, 80);
-  } catch (e) {}
+  speakMessage(message);
 }
 
 function testVoiceAnnouncement() {
@@ -782,7 +802,7 @@ function testVoiceAnnouncement() {
   const previous = settings.voiceAnnouncements;
   settings.voiceAnnouncements = true;
   unlockSpeechAnnouncements();
-  setTimeout(() => speakTimeAnnouncement(10), 150);
+  setTimeout(() => speakMessage('Ten seconds'), 150);
   settings.voiceAnnouncements = previous;
 }
 
@@ -844,16 +864,39 @@ function playBuzzer() {
   } catch (e) {}
 }
 
-function startRoundTimer() {
-  primeBuzzer();
-  unlockSpeechAnnouncements();
-  const startingNewRound = timerSeconds <= 0 || timerSeconds === secondsForRoundLength();
-  if (timerSeconds <= 0) timerSeconds = secondsForRoundLength();
-  if (startingNewRound) {
-    announcedTimeMarkers.clear();
-  }
-  roundFinished = false;
-  updateTimerDisplay();
+function clearStartCountdown() {
+  countdownTimeouts.forEach(id => clearTimeout(id));
+  countdownTimeouts = [];
+  countdownActive = false;
+}
+
+function runStartCountdown(onComplete) {
+  clearStartCountdown();
+  countdownActive = true;
+
+  const steps = [
+    { delay: 0, display: '3', speak: '3' },
+    { delay: 1000, display: '2', speak: '2' },
+    { delay: 2000, display: '1', speak: '1' },
+    { delay: 3000, display: 'GO', speak: 'Go' }
+  ];
+
+  steps.forEach(step => {
+    countdownTimeouts.push(setTimeout(() => {
+      setTimerDisplayText(step.display);
+      speakMessage(step.speak);
+    }, step.delay));
+  });
+
+  countdownTimeouts.push(setTimeout(() => {
+    countdownActive = false;
+    countdownTimeouts = [];
+    updateTimerDisplay();
+    onComplete();
+  }, 3600));
+}
+
+function beginTimerInterval() {
   if (timerInterval) return;
   timerInterval = setInterval(() => {
     timerSeconds -= 1;
@@ -870,17 +913,44 @@ function startRoundTimer() {
         try { window.speechSynthesis.cancel(); } catch (e) {}
       }
 
-      // Play the buzzer one time when the round reaches zero.
-      playBuzzer();
+      let promptDelay = 250;
+      const endAlertMode = settings.endAlertMode || 'buzzer';
+      if (endAlertMode === 'buzzer') {
+        playBuzzer();
+        promptDelay = 4200;
+      } else if (endAlertMode === 'voice') {
+        speakMessage("Time's up", { respectVoiceSetting: false });
+        promptDelay = 1200;
+      }
 
-      // Wait until the 4-second buzzer finishes before opening the prompt.
-      // This prevents iOS/Safari from replaying or resuming the sound when the prompt closes.
-      setTimeout(promptForRoundMakes, 4200);
+      setTimeout(promptForRoundMakes, promptDelay);
     }
   }, 1000);
 }
 
+function startRoundTimer() {
+  primeBuzzer();
+  unlockSpeechAnnouncements();
+  if (timerInterval || countdownActive) return;
+
+  const fullRoundSeconds = secondsForRoundLength();
+  const startingNewRound = timerSeconds <= 0 || timerSeconds === fullRoundSeconds;
+  if (timerSeconds <= 0) timerSeconds = fullRoundSeconds;
+
+  if (startingNewRound) {
+    announcedTimeMarkers.clear();
+    roundFinished = false;
+    updateTimerDisplay();
+    runStartCountdown(beginTimerInterval);
+  } else {
+    roundFinished = false;
+    updateTimerDisplay();
+    beginTimerInterval();
+  }
+}
+
 function pauseRoundTimer() {
+  clearStartCountdown();
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
@@ -1257,6 +1327,8 @@ function renderSettings() {
   document.getElementById('setting-mr').value = settings.maxRounds;
   const voiceEl = document.getElementById('setting-voice');
   if (voiceEl) voiceEl.checked = settings.voiceAnnouncements !== false;
+  const endAlertEl = document.getElementById('setting-end-alert');
+  if (endAlertEl) endAlertEl.value = settings.endAlertMode || 'buzzer';
   updateEstDisplay();
 }
 
@@ -1280,11 +1352,13 @@ function saveSettingsFromInputs(rebuildLog = false) {
   const mr  = Math.round(parseSettingNumber('setting-mr', settings.maxRounds));
   const voiceEl = document.getElementById('setting-voice');
   const voiceAnnouncements = voiceEl ? voiceEl.checked : true;
+  const endAlertEl = document.getElementById('setting-end-alert');
+  const endAlertMode = endAlertEl ? endAlertEl.value : (settings.endAlertMode || 'buzzer');
 
   if (spm > 0 && rl > 0 && mr > 0) {
     const oldMaxRounds = settings.maxRounds;
     const oldRoundLength = settings.roundLength;
-    settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr, voiceAnnouncements };
+    settings = { shotsPerMin: spm, roundLength: rl, maxRounds: mr, voiceAnnouncements, endAlertMode };
     saveSettings(settings);
 
     if (rebuildLog && (oldMaxRounds !== mr || oldRoundLength !== rl)) {
@@ -1294,14 +1368,14 @@ function saveSettingsFromInputs(rebuildLog = false) {
 }
 
 document.addEventListener('input', e => {
-  if (['setting-spm','setting-rl','setting-mr','setting-voice'].includes(e.target.id)) {
+  if (['setting-spm','setting-rl','setting-mr','setting-voice','setting-end-alert'].includes(e.target.id)) {
     updateEstDisplay();
     saveSettingsFromInputs(false);
   }
 });
 
 document.addEventListener('change', e => {
-  if (['setting-spm','setting-rl','setting-mr','setting-voice'].includes(e.target.id)) {
+  if (['setting-spm','setting-rl','setting-mr','setting-voice','setting-end-alert'].includes(e.target.id)) {
     saveSettingsFromInputs(true);
     renderSettings();
   }
