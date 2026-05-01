@@ -492,7 +492,7 @@
       <input type="checkbox" id="setting-voice" style="width:22px;height:22px;accent-color:var(--orange);">
     </div>
     <div style="font-size:12px;color:var(--muted);line-height:1.5;margin:2px 0 10px;">
-      When turned on, the timer will say “3, 2, 1, Go” before each new round and announce “Two minutes left,” “One minute left,” “Thirty seconds,” and “Ten seconds” during a round.
+      When turned on, the timer will say “5, 4, 3, 2, 1, Go” before each new round and announce “Two minutes left,” “One minute left,” “Thirty seconds,” and “Ten seconds” during a round.
     </div>
     <div class="setting-row">
       <div class="setting-label">End-of-round alert</div>
@@ -875,10 +875,12 @@ function runStartCountdown(onComplete) {
   countdownActive = true;
 
   const steps = [
-    { delay: 0, display: '3', speak: '3' },
-    { delay: 1000, display: '2', speak: '2' },
-    { delay: 2000, display: '1', speak: '1' },
-    { delay: 3000, display: 'GO', speak: 'Go' }
+    { delay: 0, display: '5', speak: '5' },
+    { delay: 1000, display: '4', speak: '4' },
+    { delay: 2000, display: '3', speak: '3' },
+    { delay: 3000, display: '2', speak: '2' },
+    { delay: 4000, display: '1', speak: '1' },
+    { delay: 5000, display: 'GO', speak: 'Go' }
   ];
 
   steps.forEach(step => {
@@ -893,7 +895,7 @@ function runStartCountdown(onComplete) {
     countdownTimeouts = [];
     updateTimerDisplay();
     onComplete();
-  }, 3600));
+  }, 5600));
 }
 
 function beginTimerInterval() {
